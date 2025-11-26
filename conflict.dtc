@@ -1,0 +1,33 @@
+#
+# decisionTableCompiler - generate optimal pseudocode for decision tables
+# Copyright (C) 1993-2025 G. David Butler <gdb@dbSystems.com>
+#
+# This file is part of decisionTableCompiler
+#
+# decisionTableCompiler is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# decisionTableCompiler is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+# Example: Conflicting rules (violates mutual exclusivity)
+# Demonstrates: Conflict where same inputs map to different outputs
+#
+# When input1=a and input2=x, result could be valueA OR valueB (conflict)
+# Each name has at least 2 values so the decision tree can be built
+
+@result,input1,input2
+valueA,a,x
+valueA,a,y
+valueA,b,x
+valueB,a,x
+valueB,a,y
+valueB,b,y

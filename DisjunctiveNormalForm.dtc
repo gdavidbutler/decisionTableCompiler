@@ -1,0 +1,84 @@
+#
+# decisionTableCompiler - generate optimal pseudocode for decision tables
+# Copyright (C) 1993-2025 G. David Butler <gdb@dbSystems.com>
+#
+# This file is part of decisionTableCompiler
+#
+# decisionTableCompiler is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# decisionTableCompiler is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+# This file is in RFC 4180 (CSV) format. NOTE: Spaces are considered part of a field.
+# Zero length rows and rows that begin with '#' are comments.
+# @name (@ prefix) starts a new decision (sub)table for name depending on name(s)
+# names' values are considered exhaustive and mutually exclusive
+# an empty value indicates no dependency on name
+
+# The output is pseudocode that is easy to translate to other formats:
+# The # comment is the worst case number of evaluations needed.
+# Labels are indicated by "< #" starting with 1.
+# Jumps to a label are indicated by "> #".
+# Evaluations are indicated by ": name value > #" if an evaluation of the name against the value, jump to label.
+# Results are indicated by "= name value".
+# The exit is label "< 0".
+#
+# A possible output for this decision table (after removing the comment characters, of course):
+# # 3
+# : signal yellow > 1
+# : signal red > 2
+# < 3
+# = proceed yes
+# = brake no
+# : isClose yes > 4
+# = accelerator no
+# > 0
+# < 4
+# = accelerator yes
+# > 0
+# < 1
+# : canStop yes > 2
+# > 3
+# < 2
+# = proceed no
+# = brake yes
+# = accelerator no
+# < 0
+
+# Proceed when the light is green and don't when the light is red.
+@proceed,signal
+yes,green
+no,red
+
+# When the light is yellow, don't proceed when a stop can be done safely, otherwise proceed.
+@proceed,signal,canStop
+yes,yellow,no
+no,yellow,yes
+
+# The previous separate @proceed tables could also be written as one table:
+#
+# @proceed,signal,canStop
+# yes,green,
+# yes,yellow,no
+# no,red,
+# no,yellow,yes
+
+# Apply brake if not proceeding, otherwise don't.
+@brake,proceed
+yes,no
+no,yes
+
+# Apply accelerator when proceed decided and the light is judged to be close to changing, otherwise don't.
+@accelerator,proceed,isClose
+yes,yes,yes
+no,yes,no
+no,no,

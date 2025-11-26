@@ -1,0 +1,54 @@
+#
+# decisionTableCompiler - generate optimal pseudocode for decision tables
+# Copyright (C) 1993-2025 G. David Butler <gdb@dbSystems.com>
+#
+# This file is part of decisionTableCompiler
+#
+# decisionTableCompiler is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# decisionTableCompiler is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+@POWER,K701,K702,K703,K704,EXT_PLG,APU_PWR,L_AMAD_RPM,R_AMAD_RPM,L_THR,R_THR
+
+BATT,OFF,OFF,OFF,OFF
+BATT,OFF,ON,,,OFF,OFF,,GRND_IDLE,,OFF
+BATT,ON,OFF,,,OFF,OFF,GRND_IDLE,,OFF
+BATT,ON,ON,,,OFF,OFF,GRND_IDLE,GRND_IDLE,OFF,OFF
+
+AUX_SES,OFF,OFF,OFF,ON,,OFF
+
+AUX_APU,OFF,OFF,OFF,ON,,ON
+AUX_APU,OFF,ON,,,OFF,ON,,GRND_IDLE,,OFF
+AUX_APU,ON,OFF,,,OFF,ON,GRND_IDLE,,OFF
+AUX_APU,ON,ON,,,OFF,ON,GRND_IDLE,GRND_IDLE,OFF,OFF
+
+EXT_PWR,OFF,OFF,ON
+EXT_PWR,OFF,ON,,,ON,,,GRND_IDLE,,OFF
+EXT_PWR,ON,OFF,,,ON,,GRND_IDLE,,OFF
+EXT_PWR,ON,ON,,,ON,,GRND_IDLE,GRND_IDLE,OFF,OFF
+
+ONE_GEN_GRND,OFF,ON,,,,,,GRND_IDLE,,ON
+ONE_GEN_GRND,ON,OFF,,,,,GRND_IDLE,,ON
+ONE_GEN_GRND,ON,ON,,,,,GRND_IDLE,GRND_IDLE,ON,OFF
+ONE_GEN_GRND,ON,ON,,,,,GRND_IDLE,GRND_IDLE,OFF,ON
+
+ONE_GEN_FLGT,OFF,ON,,,,,,FLGT_IDLE
+ONE_GEN_FLGT,ON,OFF,,,,,FLGT_IDLE
+ONE_GEN_FLGT,ON,ON,,,,,GRND_IDLE,FLGT_IDLE,OFF
+ONE_GEN_FLGT,ON,ON,,,,,FLGT_IDLE,GRND_IDLE,,OFF
+
+TWO_GEN_GRND,ON,ON,,,,,GRND_IDLE,GRND_IDLE,ON,ON
+TWO_GEN_GRND,ON,ON,,,,,GRND_IDLE,FLGT_IDLE,ON
+TWO_GEN_GRND,ON,ON,,,,,FLGT_IDLE,GRND_IDLE,,ON
+
+TWO_GEN_FLGT,ON,ON,,,,,FLGT_IDLE,FLGT_IDLE,ON,ON
