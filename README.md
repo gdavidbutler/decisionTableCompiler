@@ -4,10 +4,12 @@ Turn spreadsheet decision tables into optimized code.
 
 ## The Idea
 
-You maintain business logic in a spreadsheet. The compiler generates efficient code.
+Maintain business logic in a spreadsheet. Compiler generates efficient code.
 
-**Spreadsheet (CSV):**
+**Spreadsheet RFC 4180 (CSV) format:**
 ```
+# @name (@ prefix) starts a new decision (sub)table for name depending on name(s)
+
 @proceed,signal,canStop
 yes,green,
 yes,yellow,no
@@ -15,28 +17,22 @@ no,yellow,yes
 no,red,
 ```
 
-**Generated C code:**
+**Pseudocode Output Translated (by Hand) to Nested if/else:**
 ```c
-void decisionEvaluate(
-  enum decision_canStop_e canStop
- ,enum decision_signal_e signal
- ,enum decision_proceed_e *proceed
-){
-if (signal == decision_signal_yellow) goto L1;
-if (signal == decision_signal_green) goto L2;
-*proceed = decision_proceed_no;
-return;
-L2:
-*proceed = decision_proceed_yes;
-return;
-L1:
-if (canStop == decision_canStop_no) goto L2;
-*proceed = decision_proceed_no;
-return;
+if (signal == yellow) {
+  if (canStop == no)
+    proceed = yes;
+  else
+    proceed = no;
+} else {
+  if (signal == green)
+    proceed = yes;
+  else
+    proceed = no;
 }
 ```
 
-When requirements change, update the spreadsheet and regenerate. No manual refactoring of nested if/else chains.
+When requirements change, update the spreadsheet and regenerate. No manual refactoring of nested if/else chains. Example translators for C and Python are included.
 
 ## Quick Start
 
@@ -52,10 +48,16 @@ awk -f C.awk table.psu
 # Creates: table.h and table.c
 ```
 
+# Generate Python code
+python3 psu2py.py table.psu > table.py
+```
+
 Try the included examples:
 ```bash
 make examples
 ./test
+make examples-py
+python3 test.py
 ```
 
 ## Why Use This?
@@ -78,7 +80,7 @@ An early version of this program was developed in 1993 for avionics and embedded
 - Memory and execution time are constrained
 - Safety standards require deterministic behavior
 
-The included `power.dtc` is an early version of an actual aircraft power determination decision table.
+The included `power.dtc` is an early version of an actual twin-engine aircraft power determination decision table.
 
 ## How It Works
 
@@ -115,28 +117,35 @@ These constraints ensure:
 2. The decision table is **complete** - no input combination is undefined
 3. The compiler can **optimize safely** - knowing all possible values enables better test ordering
 
-Example (traffic light decision):
+Example (traffic light decision as input to two other tables):
 ```csv
+# Proceed when the light is green and don't when the light is red.
+@proceed,signal
+yes,green
+no,red
+
+# When the light is yellow, don't proceed when a stop can be done safely, otherwise proceed.
 @proceed,signal,canStop
-yes,green,
 yes,yellow,no
-no,red,
 no,yellow,yes
 
-@accelerator,proceed
-yes,yes
-no,no
-
+# Apply brake if not proceeding, otherwise don't.
 @brake,proceed
-no,yes
 yes,no
+no,yes
+
+# Apply accelerator when proceed is decided and the light is judged to be close to changing, otherwise don't.
+@accelerator,proceed,isClose
+yes,yes,yes
+no,yes,no
+no,no,
 ```
 
 Empty cells represent "any value". The compiler finds the optimal way to evaluate these conditions.
 
 ## Output Format
 
-Optimized decision tree in pseudo-code with metadata:
+Optimized single decision tree for all tables in pseudo-code with metadata:
 ```
 # E canStop no          // Input variable metadata
 # E canStop yes
@@ -151,7 +160,6 @@ Optimized decision tree in pseudo-code with metadata:
 # R brake yes
 # R proceed no
 # R proceed yes
-# D 3                   // Maximum decision depth
 : signal yellow > 1     // Test signal, goto 1 if yellow
 < 2                     // Label 2 (signal not yellow)
 : signal green > 3      // Test signal, goto 3 if green
@@ -178,7 +186,7 @@ Optimized decision tree in pseudo-code with metadata:
 
 ### Pseudocode Syntax
 
-**Metadata Lines (auto-generated):**
+**Metadata Lines:**
 - **`# E var val`** - Expression (input) variable with possible value - provides type information
 - **`# R var val`** - Result (output) variable with possible value - provides type information
 - **`# D n`** - Maximum decision depth (worst-case tests to reach a leaf) - complexity metric
