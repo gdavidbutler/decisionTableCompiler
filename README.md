@@ -46,11 +46,9 @@ make
 # Generate C code
 awk -f C.awk table.psu
 # Creates: table.h and table.c
-```
 
 # Generate Python code
 python3 psu2py.py table.psu > table.py
-```
 
 Try the included examples:
 ```bash
