@@ -158,6 +158,7 @@ Optimized single decision tree for all tables in pseudo-code with metadata:
 # R brake yes
 # R proceed no
 # R proceed yes
+# D 3                   // Maximum number of evaluations required
 : signal yellow > 1     // Test signal, goto 1 if yellow
 < 2                     // Label 2 (signal not yellow)
 : signal green > 3      // Test signal, goto 3 if green
