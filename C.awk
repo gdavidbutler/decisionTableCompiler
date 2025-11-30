@@ -24,8 +24,6 @@
 # Generates file.h and file.c
 
 BEGIN {
-  in_body = 0
-
   # Extract name from filename or use "stdin"
   if (ARGC > 1 && ARGV[1] != "-") {
     fname = ARGV[1]
@@ -79,50 +77,62 @@ BEGIN {
   next
 }
 
-# When we hit the first non-metadata line, emit headers
-!in_body && /^[:<>=] / {
-  in_body = 1
-  emit_header()
-}
-
-# Transform pseudocode body
-in_body {
-  if (/^< /) {
-    # Label definition
-    label = substr($0, 3)
-    if (label != "0")
-      print "L" label ":" > cfile
-  } else if (/^: /) {
-    # Conditional: : var val > label
-    # Parse manually: skip ": ", get var, get val, skip " > ", get label
-    line = substr($0, 3)  # skip ": "
-    split(line, parts, " ")
-    var = parts[1]
-    val = parts[2]
-    # Find " > " to get label
-    idx = index($0, " > ")
-    label = substr($0, idx + 3)
-    print "if (" var " == " name "_" var "_" val ") goto L" label ";" > cfile
-  } else if (/^> /) {
-    # Unconditional jump
-    label = substr($0, 3)
-    if (label == "0")
-      print "return;" > cfile
-    else
-      print "goto L" label ";" > cfile
-  } else if (/^= /) {
-    # Assignment: = var val
-    line = substr($0, 3)  # skip "= "
-    idx = index(line, " ")
-    var = substr(line, 1, idx - 1)
-    val = substr(line, idx + 1)
-    # All outputs are pointers with prefixed enum values
-    print "*" var " = " name "_" var "_" val ";" > cfile
-  }
+# Store body lines for two-pass processing
+/^[:<>=] / {
+  body[++num_body] = $0
 }
 
 END {
-  if (in_body) {
+  if (num_body > 0) {
+    # First pass: collect jump targets
+    for (i = 1; i <= num_body; i++) {
+      line = body[i]
+      if (line ~ /^: /) {
+        # Conditional: : var val > label
+        idx = index(line, " > ")
+        label = substr(line, idx + 3)
+        jump_target[label] = 1
+      } else if (line ~ /^> /) {
+        # Unconditional jump
+        label = substr(line, 3)
+        jump_target[label] = 1
+      }
+    }
+
+    emit_header()
+
+    # Second pass: emit code, filtering unused labels
+    for (i = 1; i <= num_body; i++) {
+      line = body[i]
+      if (line ~ /^< /) {
+        # Label definition - only emit if it is a jump target
+        label = substr(line, 3)
+        if (label != "0" && jump_target[label])
+          print "L" label ":" > cfile
+      } else if (line ~ /^: /) {
+        # Conditional: : var val > label
+        rest = substr(line, 3)
+        split(rest, parts, " ")
+        var = parts[1]
+        val = parts[2]
+        idx = index(line, " > ")
+        label = substr(line, idx + 3)
+        print "  if (" var " == " name "_" var "_" val ")" > cfile
+        print "    goto L" label ";" > cfile
+      } else if (line ~ /^> /) {
+        # Unconditional jump
+        label = substr(line, 3)
+        print "  goto L" label ";" > cfile
+      } else if (line ~ /^= /) {
+        # Assignment: = var val
+        rest = substr(line, 3)
+        idx = index(rest, " ")
+        var = substr(rest, 1, idx - 1)
+        val = substr(rest, idx + 1)
+        print "  *" var " = " name "_" var "_" val ";" > cfile
+      }
+    }
+
     emit_footer()
   }
 }
@@ -248,7 +258,8 @@ function emit_footer() {
   print "" > hfile
   print "#endif" > hfile
 
-  # Close function in C file
+  # Close function in C file with single exit point
+  print "L0:" > cfile
   print "  return;" > cfile
   print "}" > cfile
 }
