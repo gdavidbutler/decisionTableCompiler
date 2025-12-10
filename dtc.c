@@ -1667,6 +1667,7 @@ nodBld(
  ,const vals_t *vals
  ,const infs_t *infs
  ,unsigned int bd
+ ,unsigned int q
 ){
   bld_t *bld;
   vals_t *vs;
@@ -1834,13 +1835,13 @@ puts("!fV || !fO");
 #if DTC_DEBUG
 puts("V");
 #endif
-    if (fV && !(r->nodV = nodBld(blds, fV, nV, bd)))
+    if (fV && !(r->nodV = nodBld(blds, fV, nV, bd, q)))
       goto error1;
 
 #if DTC_DEBUG
 puts("O");
 #endif
-    if (fO && !(r->nodO = nodBld(blds, fO, nO, bd)))
+    if (fO && !(r->nodO = nodBld(blds, fO, nO, bd, q)))
       goto error1;
 
     valsRefFre(fO);
@@ -1870,7 +1871,7 @@ printf("not better %u > %u\n", r->d, bd);
     if (!bld->nod->val || r->d < bld->nod->d) {
       nodFre(bld->nod);
       bld->nod = r;
-      if (!bld->nod->d)
+      if (q || !bld->nod->d)
         break;
       bd = bld->nod->d;
     } else
@@ -2060,9 +2061,10 @@ main(
   const nod_t *nod;
   unsigned int i;
   unsigned int b;
+  unsigned int q;
 
-  if (argc < 2) {
-    fprintf(stderr, "Usage: %s file ...\n", argv[0]);
+  if ((argc > 1 && !strcmp(argv[1], "-q") && argc < 3) || argc < 2) {
+    fprintf(stderr, "Usage: %s [-] file ...\n", argv[0]);
     return (1);
   }
   vals = 0;
@@ -2074,7 +2076,11 @@ main(
     fprintf(stderr, "%s: alloc fail\n", argv[0]);
     goto exit;
   }
-  for (i = 1; i < (unsigned int)argc; ++i) {
+  if (!strcmp(argv[1], "-q"))
+    q = 1, i = 2;
+  else
+    q = 0, i = 1;
+  for (; i < (unsigned int)argc; ++i) {
     unsigned char *bf;
     int fd;
     int sz;
@@ -2176,7 +2182,7 @@ main(
     );
   }
   if (!(blds = bldsNew())
-   || !(nod = nodBld(blds, vals, csv->infs, vals->n))) {
+   || !(nod = nodBld(blds, vals, csv->infs, vals->n, q))) {
     fprintf(stderr, "%s: build failed (out of memory)\n", argv[0]);
     goto exit;
   }

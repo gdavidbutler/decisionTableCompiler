@@ -419,7 +419,6 @@ The decision table optimization problem is **NP-complete**. Finding the optimal 
 **Compilation time varies based on:**
 - **Number of input variables**: Each additional variable exponentially increases the search space
 - **Number of unique values per variable**: More values = more possible test orderings
-- **Interdependencies**: Complex relationships between variables make optimization harder
 
 **Practical expectations:**
 - **Simple tables** (3-5 variables): Milliseconds
@@ -433,7 +432,7 @@ The decision table optimization problem is **NP-complete**. Finding the optimal 
 - Duplicate code at every branch point (exponential size)
 
 **With dtc optimization**, the `power.dtc` example (10 input variables, 20 values):
-- Achieves depth 8 instead of depth 20 (60% reduction)
+- Achieves depth 8 instead of depth 20 (60% reduction). (With the -q, quick, flag, the depth is 10.)
 - Shares nodes via DAG structure (compact output)
 
 Compilation time is paid once. The generated code runs in O(depth) time.
@@ -441,8 +440,8 @@ Compilation time is paid once. The generated code runs in O(depth) time.
 ### If Compilation Is Slow
 
 - **This is expected** for complex tables - the tool is doing hard optimization work
-- The output will be much better than hand-written nested if/else
-- Consider breaking very large tables into smaller sub-tables
+- Use the -q (quick) flag to stop on the first complete heuristic pass. The result is correct but, probably, not optimal.
+- Either way, the output will be much better than hand-written nested if/else
 
 ### License
 
