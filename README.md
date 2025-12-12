@@ -87,9 +87,9 @@ Decision Table (.dtc)  →  Pseudocode (.psu)  →  Target Language (.h, .c, etc
      CSV Format              Optimized DAG         Language-specific code
 ```
 
-1. **Input**: CSV decision tables where each row defines one outcome
+1. **Input**: CSV formatted decision tables where each row defines one outcome
 2. **Compilation**: `dtc` builds an optimized decision graph (DAG structure)
-3. **Output**: Pseudocode with metadata documenting all variables
+3. **Output**: CSV formatted pseudocode with metadata documenting all variables
 4. **Translation**: Language-specific tools (e.g., `C.awk`) generate final code
 
 ## Input Format
@@ -141,60 +141,89 @@ no,no,
 
 Empty cells represent "any value". The compiler finds the optimal way to evaluate these conditions.
 
+### Names with Spaces and Special Characters
+
+Variable names and values can contain spaces, punctuation, and other special characters. The compiler uses standard CSV encoding (RFC 4180) for both input and output:
+
+```csv
+@Free shipping,Favored customer,Total order amount > $500.00
+y,y,
+y,n,y
+n,n,n
+```
+
+Names containing commas or quotes require CSV quoting:
+```csv
+@result,"Order requires special ""HAZMAT""",destination
+y,y,domestic
+n,y,international
+```
+
+The translators (`C.awk`, `psu2py.py`) convert these to valid identifiers in the target language by replacing special characters with underscores.
+
 ## Output Format
 
-Optimized single decision tree for all tables in pseudo-code with metadata:
-```
-# E canStop no          // Input variable metadata
-# E canStop yes
-# E isClose no
-# E isClose yes
-# E signal green
-# E signal red
-# E signal yellow
-# R accelerator no      // Output variable metadata
-# R accelerator yes
-# R brake no
-# R brake yes
-# R proceed no
-# R proceed yes
-# D 3                   // Maximum number of evaluations required
-: signal yellow > 1     // Test signal, goto 1 if yellow
-< 2                     // Label 2 (signal not yellow)
-: signal green > 3      // Test signal, goto 3 if green
-< 4                     // Label 4 (signal is red)
-= accelerator no        // Set accelerator to no
-= brake yes             // Set brake to yes
-= proceed no            // Set proceed to no
-> 0                     // Exit
-< 3                     // Label 3 (proceed: green or yellow+can't stop)
-= brake no              // Set brake to no
-= proceed yes           // Set proceed to yes
-: isClose no > 5        // Test isClose, goto 5 if no
-< 6                     // Label 6 (isClose is yes)
-= accelerator yes       // Set accelerator to yes
-> 0                     // Exit
-< 5                     // Label 5 (isClose is no)
-= accelerator no        // Set accelerator to no
-> 0                     // Exit
-< 1                     // Label 1 (signal is yellow)
-: canStop no > 3        // Test canStop, goto 3 (proceed) if no
-> 4                     // Otherwise goto 4 (stop)
-< 0                     // Exit label
+The pseudocode output is in CSV format, making it easy to parse in any language. Each line is a CSV record with the operation type in the first field.
+
+**Example output for the traffic light decision table:**
+```csv
+I,canStop,no
+I,canStop,yes
+I,isClose,no
+I,isClose,yes
+I,signal,green
+I,signal,red
+I,signal,yellow
+O,accelerator,no
+O,accelerator,yes
+O,brake,no
+O,brake,yes
+O,proceed,no
+O,proceed,yes
+D,3
+T,signal,yellow,1
+L,2
+T,signal,green,3
+L,4
+R,accelerator,no
+R,brake,yes
+R,proceed,no
+J,0
+L,3
+R,brake,no
+R,proceed,yes
+T,isClose,no,5
+L,6
+R,accelerator,yes
+J,0
+L,5
+R,accelerator,no
+J,0
+L,1
+T,canStop,no,3
+J,4
+L,0
 ```
 
 ### Pseudocode Syntax
 
 **Metadata Lines:**
-- **`# E var val`** - Expression (input) variable with possible value - provides type information
-- **`# R var val`** - Result (output) variable with possible value - provides type information
-- **`# D n`** - Maximum decision depth (worst-case tests to reach a leaf) - complexity metric
+- **`I,var,val`** - Input variable with possible value - provides type information
+- **`O,var,val`** - Output variable with possible value - provides type information
+- **`D,n`** - Depth (maximum decision depth, worst-case tests to reach a leaf) - complexity metric
 
 **Code Lines:**
-- **`< n`** - Label definition (numeric, 0 is exit)
-- **`: var val > n`** - Conditional test and jump
-- **`> n`** - Unconditional jump (0 = exit/return)
-- **`= var val`** - Assignment
+- **`L,n`** - Label definition (numeric, 0 is exit)
+- **`T,var,val,n`** - Test: if var equals val, jump to label n
+- **`J,n`** - Jump unconditionally to label n (0 = exit/return)
+- **`R,var,val`** - Resolve: assign val to var
+
+**CSV Encoding:**
+All variable names and values are CSV-encoded. Values containing commas, quotes, or newlines are quoted per RFC 4180:
+```csv
+I,"Order requires special ""HAZMAT""",y
+R,"Add $17.50 foreign shipping fee",y
+```
 
 **Metadata Purpose:**
 The metadata lines enable automatic generation of:
@@ -207,7 +236,7 @@ This metadata makes the pseudocode self-describing and sufficient for translatio
 
 ## Language Translation
 
-The pseudocode is designed to map efficiently to machine instructions, using goto for optimal performance. The metadata (# E and # R lines) provides all information needed to generate type definitions and function signatures in any target language.
+The CSV pseudocode is designed to be easily parsed by any language with a CSV library. The metadata (I and O lines) provides all information needed to generate type definitions and function signatures.
 
 ### Direct Translation (goto-based)
 
@@ -230,6 +259,7 @@ This generates complete C code with:
 - Header file with type definitions and function declaration
 - Implementation file with goto-based decision logic preserving DAG structure
 - All identifiers prefixed with table name to avoid conflicts
+- Special characters in names converted to underscores for valid C identifiers
 
 ### State Machine Translation
 
@@ -268,7 +298,7 @@ Example: In `power.psu`, multiple decision paths converge to the same power stat
 
 ## C Code Generation
 
-The `C.awk` script translates pseudocode into complete C header and implementation files with proper type safety and namespace isolation.
+The `C.awk` script translates CSV pseudocode into complete C header and implementation files with proper type safety and namespace isolation.
 
 ### Quick Start
 
@@ -294,9 +324,16 @@ make examples
 
 The Makefile includes pattern rules to automatically generate `.psu` from `.dtc` files and `.h`/`.c` from `.psu` files.
 
+### Identifier Conversion
+
+Variable names and values are converted to valid C identifiers:
+- Spaces become underscores: `Favored customer` → `Favored_customer`
+- Special characters become underscores: `Total order amount > $500.00` → `Total_order_amount____500_00`
+- Leading digits get underscore prefix: `1stChoice` → `_1stChoice`
+
 ## Python Code Generation
 
-The `psu2py.py` script translates pseudocode into Python modules using a state machine pattern.
+The `psu2py.py` script translates CSV pseudocode into Python modules using a state machine pattern.
 
 ### Quick Start
 
@@ -316,19 +353,20 @@ make examples-py
 ### Generated Code Example
 
 **Input (decision.psu):**
-```
-# E signal green
-# E signal red
-# R proceed no
-# R proceed yes
-: signal green > 1
-< 2
-= proceed no
-> 0
-< 1
-= proceed yes
-> 0
-< 0
+```csv
+I,signal,green
+I,signal,red
+O,proceed,no
+O,proceed,yes
+D,2
+T,signal,green,1
+L,2
+R,proceed,no
+J,0
+L,1
+R,proceed,yes
+J,0
+L,0
 ```
 
 **Output (decision.py):**
@@ -369,20 +407,24 @@ result = decision.evaluate(decision.signal.green)
 print(result.name)  # "yes"
 ```
 
+### Identifier Conversion
+
+Like C.awk, psu2py.py converts names to valid Python identifiers using the same rules (special characters become underscores).
+
 ## Visualization and Documentation
 
 The pseudocode metadata provides complete information for generating visual representations of decision logic.
 
 ### Flowcharts and UML Diagrams
 
-The metadata (# E, # R, # D) combined with the pseudocode structure contains all necessary information to generate:
+The metadata (I, O, D) combined with the pseudocode structure contains all necessary information to generate:
 
 **UML Activity Diagrams:**
-- Decision nodes (diamonds) from `: var val > n` conditionals
-- Action nodes (rectangles) from `= var val` assignments
-- Control flow from `> n` jumps
+- Decision nodes (diamonds) from `T,var,val,n` conditionals
+- Action nodes (rectangles) from `R,var,val` assignments
+- Control flow from `J,n` jumps
 - Entry point from start of code (before first label)
-- Exit point from label 0 or `> 0` jumps
+- Exit point from label 0 or `J,0` jumps
 - Guard conditions from test expressions
 
 **Flowcharts via Graphviz/DOT:**
@@ -402,10 +444,10 @@ The generated graph would show:
 
 **Metadata Completeness:**
 The pseudocode contains everything needed for diagram generation:
-- All variable names and their possible values (# E, # R)
+- All variable names and their possible values (I, O)
 - Complete control flow graph (labels and jumps)
 - Decision conditions with explicit comparisons
-- Complexity metric (# D) for documentation
+- Complexity metric (D) for documentation
 - Entry and exit points clearly marked
 
 This allows domain experts to review decision logic visually while maintaining a single source of truth (the .dtc file).

@@ -24,35 +24,38 @@
 # names' values are considered exhaustive and mutually exclusive
 # an empty value indicates no dependency on name
 
-# The output is pseudocode that is easy to translate to other formats:
-# The # comment is the worst case number of evaluations needed.
-# Labels are indicated by "< #" starting with 1.
-# Jumps to a label are indicated by "> #".
-# Evaluations are indicated by ": name value > #" if an evaluation of the name against the value, jump to label.
-# Results are indicated by "= name value".
-# The exit is label "< 0".
+# The output is CSV pseudocode that is easy to translate to other formats:
+# The D row is the maximum depth (number of evaluations needed).
+# Labels are indicated by rows "L,#" starting with 1.
+# Jumps to a label are indicated by rows "J,#".
+# Test and jump are indicated by "T,name,value,#" if the name is the value, jump to label.
+# Resolutions are indicated by "R,name,value".
+# The exit is label "L,0".
 #
 # A possible output for this decision table (after removing the comment characters, of course):
-# # 3
-# : signal yellow > 1
-# : signal red > 2
-# < 3
-# = proceed yes
-# = brake no
-# : isClose yes > 4
-# = accelerator no
-# > 0
-# < 4
-# = accelerator yes
-# > 0
-# < 1
-# : canStop yes > 2
-# > 3
-# < 2
-# = proceed no
-# = brake yes
-# = accelerator no
-# < 0
+# D,3
+# T,signal,yellow,1
+# L,2
+# T,signal,green,3
+# L,4
+# R,accelerator,no
+# R,brake,yes
+# R,proceed,no
+# J,0
+# L,3
+# R,brake,no
+# R,proceed,yes
+# T,isClose,no,5
+# L,6
+# R,accelerator,yes
+# J,0
+# L,5
+# R,accelerator,no
+# J,0
+# L,1
+# T,canStop,no,3
+# J,4
+# L,0
 
 # Proceed when the light is green and don't when the light is red.
 @proceed,signal

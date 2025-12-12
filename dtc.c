@@ -1962,6 +1962,22 @@ outBrnLbl(
   return (i);
 }
 
+static void
+csvPrn(
+  const unsigned char *v
+ ,unsigned char n
+){
+  unsigned char *e;
+  int l;
+
+  if (!(e = malloc(n * 2))
+   || (l = csvEncodeValue(e, n * 2, v, n)) <= 0)
+    printf("%.*s", (int)n, v);
+  else
+    printf("%.*s", l, e);
+  free(e);
+}
+
 /* output branch content */
 static void
 outBrnCon(
@@ -1971,17 +1987,18 @@ outBrnCon(
 ){
   unsigned int i;
 
-  for (i = 0; infs && i < infs->n; ++i)
-    printf("= %.*s %.*s\n"
-    ,(*(infs->v + i))->val->nam->sym->n
-    ,(*(infs->v + i))->val->nam->sym->v
-    ,(*(infs->v + i))->val->sym->n
-    ,(*(infs->v + i))->val->sym->v
-    );
+  if (infs)
+    for (i = 0; i < infs->n; ++i) {
+      printf("R,");
+      csvPrn((*(infs->v + i))->val->nam->sym->v, (*(infs->v + i))->val->nam->sym->n);
+      putchar(',');
+      csvPrn((*(infs->v + i))->val->sym->v, (*(infs->v + i))->val->sym->n);
+      putchar('\n');
+    }
   if (nod)
     outNod(out, nod);
   else
-    puts("> 0");
+    puts("J,0");
 }
 
 /* output branch with deduplication */
@@ -1996,9 +2013,9 @@ outBrn(
 
   l = outBrnLbl(out, infs, nod, &dup);
   if (dup) {
-    printf("> %u\n", l);
+    printf("J,%u\n", l);
   } else {
-    printf("< %u\n", l);
+    printf("L,%u\n", l);
     outBrnCon(out, infs, nod);
   }
 }
@@ -2016,31 +2033,29 @@ outNod(
   if (!nod)
     return;
   if (nod->lbl) {
-    printf("> %u\n", nod->lbl);
+    printf("J,%u\n", nod->lbl);
     return;
   }
   ((nod_t *)nod)->lbl = out->l;
   if (!nod->val) {
-    for (i = 0; nod->infsV && i < nod->infsV->n; ++i)
-      printf("= %.*s %.*s\n"
-      ,(*(nod->infsV->v + i))->val->nam->sym->n
-      ,(*(nod->infsV->v + i))->val->nam->sym->v
-      ,(*(nod->infsV->v + i))->val->sym->n
-      ,(*(nod->infsV->v + i))->val->sym->v
-      );
+    for (i = 0; nod->infsV && i < nod->infsV->n; ++i) {
+      printf("R,");
+      csvPrn((*(nod->infsV->v + i))->val->nam->sym->v, (*(nod->infsV->v + i))->val->nam->sym->n);
+      putchar(',');
+      csvPrn((*(nod->infsV->v + i))->val->sym->v, (*(nod->infsV->v + i))->val->sym->n);
+      putchar('\n');
+    }
     return;
   }
   l = outBrnLbl(out, nod->infsV, nod->nodV, &dup);
-  printf(": %.*s %.*s > %u\n"
-  ,nod->val->nam->sym->n
-  ,nod->val->nam->sym->v
-  ,nod->val->sym->n
-  ,nod->val->sym->v
-  ,l
-  );
+  printf("T,");
+  csvPrn(nod->val->nam->sym->v, nod->val->nam->sym->n);
+  putchar(',');
+  csvPrn(nod->val->sym->v, nod->val->sym->n);
+  printf(",%u\n", l);
   outBrn(out, nod->infsO, nod->nodO);
   if (!dup) {
-    printf("< %u\n", l);
+    printf("L,%u\n", l);
     outBrnCon(out, nod->infsV, nod->nodV);
   }
 }
@@ -2161,22 +2176,20 @@ main(
     goto exit;
   fprintf(stderr, "%s: Independent values: %u\n", argv[0], vals->n);
   for (i = 0; i < vals->n; ++i) {
-    printf("# E %.*s %.*s\n"
-    ,(*(vals->v + i))->nam->sym->n
-    ,(*(vals->v + i))->nam->sym->v
-    ,(*(vals->v + i))->sym->n
-    ,(*(vals->v + i))->sym->v
-    );
+    printf("I,");
+    csvPrn((*(vals->v + i))->nam->sym->v, (*(vals->v + i))->nam->sym->n);
+    putchar(',');
+    csvPrn((*(vals->v + i))->sym->v, (*(vals->v + i))->sym->n);
+    putchar('\n');
   }
   for (i = 0; i < csv->infs->n; ++i) {
     if (i && (*(csv->infs->v + i))->val == (*(csv->infs->v + i - 1))->val)
       continue;
-    printf("# R %.*s %.*s\n"
-    ,(*(csv->infs->v + i))->val->nam->sym->n
-    ,(*(csv->infs->v + i))->val->nam->sym->v
-    ,(*(csv->infs->v + i))->val->sym->n
-    ,(*(csv->infs->v + i))->val->sym->v
-    );
+    printf("O,");
+    csvPrn((*(csv->infs->v + i))->val->nam->sym->v, (*(csv->infs->v + i))->val->nam->sym->n);
+    putchar(',');
+    csvPrn((*(csv->infs->v + i))->val->sym->v, (*(csv->infs->v + i))->val->sym->n);
+    putchar('\n');
   }
   if (!(blds = bldsNew())
    || !(nod = nodBld(blds, vals, csv->infs, vals->n, q))) {
@@ -2201,12 +2214,12 @@ main(
   {
     out_t out;
 
-    printf("# D %u\n", nod->d + 1);
+    printf("D,%u\n", nod->d + 1);
     out.b = 0;
     out.n = 0;
     out.l = 1;
     outNod(&out, nod);
-    puts("< 0");
+    puts("L,0");
     free(out.b);
   }
 
