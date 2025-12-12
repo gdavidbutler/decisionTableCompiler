@@ -770,6 +770,7 @@ csvCb(
   int i;
 
   (void)v;
+  ++r; /* convert row# from zero based to one based */
   switch (t) {
   case csvTp_Ce:
     if (V->inf) {
@@ -1434,11 +1435,10 @@ nodInfsPrt(
 }
 #endif
 
-/* check for conflicting inferences (same result name, different values) */
 static int
 infsChk(
   const infs_t *infs
- ,const char *fil
+ ,const char *prg
 ){
   unsigned int i;
   unsigned int j;
@@ -1451,16 +1451,14 @@ infsChk(
     for (j = i + 1; j < infs->n; ++j)
       if ((*(infs->v + i))->val->nam == (*(infs->v + j))->val->nam
        && (*(infs->v + i))->val != (*(infs->v + j))->val) {
-        fprintf(stderr, "%s: conflict %.*s %.*s @%s:%u vs %.*s %.*s @%s:%u\n"
-        ,fil
+        fprintf(stderr, "%s: unresolvable \"%.*s\": \"%.*s\" @%s:%u vs \"%.*s\" @%s:%u\n"
+        ,prg
         ,(*(infs->v + i))->val->nam->sym->n
         ,(*(infs->v + i))->val->nam->sym->v
         ,(*(infs->v + i))->val->sym->n
         ,(*(infs->v + i))->val->sym->v
         ,(*(infs->v + i))->fil
         ,(*(infs->v + i))->row
-        ,(*(infs->v + j))->val->nam->sym->n
-        ,(*(infs->v + j))->val->nam->sym->v
         ,(*(infs->v + j))->val->sym->n
         ,(*(infs->v + j))->val->sym->v
         ,(*(infs->v + j))->fil
@@ -1471,21 +1469,20 @@ infsChk(
   return (r);
 }
 
-/* recursively check node tree for conflicts */
 static int
 nodChk(
   const nod_t *nod
- ,const char *fil
+ ,const char *prg
 ){
   int r;
 
   r = 0;
   if (!nod)
     return (r);
-  r |= infsChk(nod->infsV, fil);
-  r |= infsChk(nod->infsO, fil);
-  r |= nodChk(nod->nodV, fil);
-  r |= nodChk(nod->nodO, fil);
+  r |= infsChk(nod->infsV, prg);
+  r |= infsChk(nod->infsO, prg);
+  r |= nodChk(nod->nodV, prg);
+  r |= nodChk(nod->nodO, prg);
   return (r);
 }
 
@@ -2196,7 +2193,7 @@ main(
   puts("\nend\n");
 #endif
 
-  /* check for conflicting inferences */
+  /* check for unresolvable inferences (same name with different values) */
   if (nodChk(nod, argv[0]))
     goto exit;
 
