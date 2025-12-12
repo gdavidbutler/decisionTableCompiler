@@ -925,6 +925,22 @@ csvFre(
   free(v);
 }
 
+static void
+csvPrt(
+  const unsigned char *v
+ ,unsigned char n
+){
+  unsigned char *e;
+  int l;
+
+  if (!(e = malloc(n * 2))
+   || (l = csvEncodeValue(e, n * 2, v, n)) <= 0)
+    printf("%.*s", (int)n, v);
+  else
+    printf("%.*s", l, e);
+  free(e);
+}
+
 /********************************************************************************/
 
 /* single dependency transitive closure */
@@ -1962,22 +1978,6 @@ outBrnLbl(
   return (i);
 }
 
-static void
-csvPrn(
-  const unsigned char *v
- ,unsigned char n
-){
-  unsigned char *e;
-  int l;
-
-  if (!(e = malloc(n * 2))
-   || (l = csvEncodeValue(e, n * 2, v, n)) <= 0)
-    printf("%.*s", (int)n, v);
-  else
-    printf("%.*s", l, e);
-  free(e);
-}
-
 /* output branch content */
 static void
 outBrnCon(
@@ -1990,9 +1990,9 @@ outBrnCon(
   if (infs)
     for (i = 0; i < infs->n; ++i) {
       printf("R,");
-      csvPrn((*(infs->v + i))->val->nam->sym->v, (*(infs->v + i))->val->nam->sym->n);
+      csvPrt((*(infs->v + i))->val->nam->sym->v, (*(infs->v + i))->val->nam->sym->n);
       putchar(',');
-      csvPrn((*(infs->v + i))->val->sym->v, (*(infs->v + i))->val->sym->n);
+      csvPrt((*(infs->v + i))->val->sym->v, (*(infs->v + i))->val->sym->n);
       putchar('\n');
     }
   if (nod)
@@ -2040,18 +2040,18 @@ outNod(
   if (!nod->val) {
     for (i = 0; nod->infsV && i < nod->infsV->n; ++i) {
       printf("R,");
-      csvPrn((*(nod->infsV->v + i))->val->nam->sym->v, (*(nod->infsV->v + i))->val->nam->sym->n);
+      csvPrt((*(nod->infsV->v + i))->val->nam->sym->v, (*(nod->infsV->v + i))->val->nam->sym->n);
       putchar(',');
-      csvPrn((*(nod->infsV->v + i))->val->sym->v, (*(nod->infsV->v + i))->val->sym->n);
+      csvPrt((*(nod->infsV->v + i))->val->sym->v, (*(nod->infsV->v + i))->val->sym->n);
       putchar('\n');
     }
     return;
   }
   l = outBrnLbl(out, nod->infsV, nod->nodV, &dup);
   printf("T,");
-  csvPrn(nod->val->nam->sym->v, nod->val->nam->sym->n);
+  csvPrt(nod->val->nam->sym->v, nod->val->nam->sym->n);
   putchar(',');
-  csvPrn(nod->val->sym->v, nod->val->sym->n);
+  csvPrt(nod->val->sym->v, nod->val->sym->n);
   printf(",%u\n", l);
   outBrn(out, nod->infsO, nod->nodO);
   if (!dup) {
@@ -2177,18 +2177,18 @@ main(
   fprintf(stderr, "%s: Independent values: %u\n", argv[0], vals->n);
   for (i = 0; i < vals->n; ++i) {
     printf("I,");
-    csvPrn((*(vals->v + i))->nam->sym->v, (*(vals->v + i))->nam->sym->n);
+    csvPrt((*(vals->v + i))->nam->sym->v, (*(vals->v + i))->nam->sym->n);
     putchar(',');
-    csvPrn((*(vals->v + i))->sym->v, (*(vals->v + i))->sym->n);
+    csvPrt((*(vals->v + i))->sym->v, (*(vals->v + i))->sym->n);
     putchar('\n');
   }
   for (i = 0; i < csv->infs->n; ++i) {
     if (i && (*(csv->infs->v + i))->val == (*(csv->infs->v + i - 1))->val)
       continue;
     printf("O,");
-    csvPrn((*(csv->infs->v + i))->val->nam->sym->v, (*(csv->infs->v + i))->val->nam->sym->n);
+    csvPrt((*(csv->infs->v + i))->val->nam->sym->v, (*(csv->infs->v + i))->val->nam->sym->n);
     putchar(',');
-    csvPrn((*(csv->infs->v + i))->val->sym->v, (*(csv->infs->v + i))->val->sym->n);
+    csvPrt((*(csv->infs->v + i))->val->sym->v, (*(csv->infs->v + i))->val->sym->n);
     putchar('\n');
   }
   if (!(blds = bldsNew())
