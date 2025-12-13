@@ -1,12 +1,12 @@
 # Decision Table Compiler (dtc)
 
-Turn spreadsheet decision tables into optimized code.
+Turn spreadsheet (in [CSV](https://en.wikipedia.org/wiki/Comma-separated_values) format) [decision table](https://en.wikipedia.org/wiki/Decision_table)s into optimized code.
 
 ## The Idea
 
 Maintain business logic in a spreadsheet. Compiler generates efficient code.
 
-**Spreadsheet RFC 4180 (CSV) format:**
+**Spreadsheet CSV [RFC 4180](https://tools.ietf.org/rfc/rfc4180.txt) format:**
 ```
 # @name (@ prefix) starts a new decision (sub)table for name depending on name(s)
 
@@ -17,7 +17,7 @@ no,yellow,yes
 no,red,
 ```
 
-**Pseudocode Output Translated (by Hand) to Nested if/else:**
+**Pseudocode output translated (by hand) to nested if/else:**
 ```c
 if (signal == yellow) {
   if (canStop == no)
@@ -94,7 +94,7 @@ Decision Table (.dtc)  →  Pseudocode (.psu)  →  Target Language (.h, .c, etc
 
 ## Input Format
 
-Disjunctive normal form CSV format using a prefix character, '@', to indicate a decision (sub)table:
+[Disjunctive normal form](https://en.wikipedia.org/wiki/Disjunctive_normal_form) CSV format using a prefix character, '@', to indicate a decision (sub)table:
 
 ```csv
 @resultName,dependentName1,dependentName2,...
@@ -160,6 +160,127 @@ n,y,international
 ```
 
 The translators (`C.awk`, `psu2py.py`) convert these to valid identifiers in the target language by replacing special characters with underscores.
+
+### Sparse vs Fully Specified Tables
+
+Decision tables can be written in two styles:
+
+**Fully Specified Tables:**
+Every possible combination of input values has an explicit row. For n binary inputs, this means 2^n rows.
+
+```csv
+@result,A,B
+yes,0,0
+yes,0,1
+no,1,0
+no,1,1
+```
+
+**Sparse Tables:**
+Empty cells indicate "any value" - the result does not depend on that input for this row. This reduces table size and often improves readability:
+
+```csv
+@result,A,B
+yes,0,
+no,1,
+```
+
+Both tables above are equivalent. The sparse form has 2 rows instead of 4.
+
+**Optimization implications:**
+- Sparse tables give the compiler more freedom to reorder tests, often producing better results
+- Fully specified tables may constrain the search space, sometimes compiling faster
+- Domain experts often find sparse tables easier to maintain since each row captures a logical rule rather than enumerating combinations
+
+## Table Design Patterns
+
+### Conditions-Rules-Actions Pattern
+
+Many decision table methodologies use a two-stage approach:
+
+1. **Stage 1 (Conditions → Rules):** Input conditions are evaluated to determine which "rule" applies
+2. **Stage 2 (Rules → Actions):** The matched rule determines which actions fire
+
+This pattern maps naturally to dtc using an intermediate variable:
+
+```csv
+# Stage 1: Conditions determine which rule matches
+@rule,customer type,order value,destination
+1,premium,,
+2,standard,high,domestic
+3,standard,high,international
+4,standard,low,domestic
+5,standard,low,international
+
+# Stage 2: Rules determine actions
+@free shipping,rule
+y,1
+y,2
+n,3
+n,4
+n,5
+
+@apply discount,rule
+n,1
+y,2
+y,3
+n,4
+n,5
+
+@add customs fee,rule
+n,1
+n,2
+y,3
+n,4
+y,5
+```
+
+**Benefits of this pattern:**
+- **Separation of concerns**: Domain experts maintain condition-to-rule mappings; action tables are simpler
+- **Reusability**: Multiple action tables share the same rule definitions
+- **Traceability**: Rules provide named intermediate states for debugging and documentation
+- **Scalability**: Adding a new action only requires one new table referencing existing rules
+
+### Direct Mapping Pattern
+
+For simpler problems, map conditions directly to outputs without intermediate rules:
+
+```csv
+@free shipping,customer type,order value
+y,premium,
+n,standard,low
+y,standard,high
+```
+
+The compiler optimizes both patterns. Choose based on maintainability needs.
+
+### Multi-File Compilation
+
+The compiler merges all tables from all input files, solving them together into a single optimized DAG. This enables a "multiple sheets" decomposition style familiar to spreadsheet users:
+
+```bash
+# Compile tables from multiple files together
+./dtc conditions.dtc actions.dtc overrides.dtc > combined.psu
+```
+
+**Use cases:**
+- **Organizational separation**: Group related tables by domain concern (e.g., pricing.dtc, shipping.dtc, discounts.dtc)
+- **Team workflows**: Different domain experts maintain different files
+- **Conditional inclusion**: Include or exclude table files based on configuration
+
+**Important consideration:**
+Tables with interdependencies (shared variables) benefit from joint optimization. However, compiling independent tables together increases optimization time exponentially since the search space combines. For independent decision problems:
+
+```bash
+# Independent tables: compile separately (faster)
+./dtc power.dtc > power.psu
+./dtc shipping.dtc > shipping.psu
+
+# Interdependent tables: compile together (better optimization)
+./dtc proceed.dtc brake.dtc accelerator.dtc > driving.psu
+```
+
+If compilation takes too long, consider whether your tables are truly interdependent. Splitting independent problems into separate compilation units reduces optimization time while producing equivalent results.
 
 ## Output Format
 
@@ -263,7 +384,7 @@ This generates complete C code with:
 
 ### State Machine Translation
 
-Languages without goto require translation to a state machine pattern. This adds dispatch overhead but maintains the DAG structure and compact representation:
+Languages without goto require translation to a [state machine](https://en.wikipedia.org/wiki/Finite-state_machine) pattern. This adds dispatch overhead but maintains the DAG structure and compact representation:
 
 | Language | Recommended Pattern | Translator |
 |----------|---------------------|------------|
@@ -287,7 +408,7 @@ While not as optimal as goto, state machine translation still benefits from the 
 
 ### Why goto-based Pseudocode?
 
-The decision table compiler generates a **directed acyclic graph (DAG)** where multiple decision paths converge at shared nodes. This structure:
+The decision table compiler generates a [directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) (DAG) where multiple decision paths converge at shared nodes. This structure:
 
 1. **Eliminates duplicate code** - Tree-structured if/else would duplicate downstream logic at every branch point (exponential bloat)
 2. **Maps to machine code** - goto translates directly to CPU jump instructions
@@ -454,7 +575,7 @@ This allows domain experts to review decision logic visually while maintaining a
 
 ## Computational Complexity
 
-The decision table optimization problem is **NP-complete**. Finding the optimal decision tree that minimizes worst-case evaluation depth while maximizing node sharing involves exploring an exponentially large search space.
+The decision table optimization problem is [NP-complete](https://en.wikipedia.org/wiki/NP-completeness). Finding the optimal decision tree that minimizes worst-case evaluation depth while maximizing node sharing involves exploring an exponentially large search space.
 
 ### Compilation Time
 
