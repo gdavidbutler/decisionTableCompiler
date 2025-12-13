@@ -1806,17 +1806,6 @@ nodInfsPrt(nO);
 #endif
     }
 
-    if ((!nV->n && !r->infsV)
-     || (!nO->n && !r->infsO)) {
-#if DTC_DEBUG
-puts("!nV || !nO");
-#endif
-      infsRefFre(nO);
-      infsRefFre(nV);
-      nodFre(r);
-      continue;
-    }
-
     fV = fO = 0;
     if (nV->n && !(fV = valsSubValNam(vals, *(vs->v + i), nV)))
       goto error1;
@@ -1865,9 +1854,9 @@ puts("O");
     if (r->nodV || r->nodO) {
       if (r->nodV && r->nodO && r->nodV->val && r->nodO->val)
         r->d = 1 + (r->nodV->d > r->nodO->d ? r->nodV->d : r->nodO->d);
-      else if (r->nodV && r->nodV->val)
+      else if (!r->nodO && r->nodV && r->nodV->val)
         r->d = 1 + r->nodV->d;
-      else if (r->nodO && r->nodO->val)
+      else if (!r->nodV && r->nodO && r->nodO->val)
         r->d = 1 + r->nodO->d;
       else {
         nodFre(r);
