@@ -2180,6 +2180,7 @@ main(
     csvPrt((*(csv->infs->v + i))->val->sym->v, (*(csv->infs->v + i))->val->sym->n);
     putchar('\n');
   }
+  fflush(stdout);
   if (!(blds = bldsNew())
    || !(nod = nodBld(blds, vals, csv->infs, vals->n, q))) {
     fprintf(stderr, "%s: build failed (out of memory)\n", argv[0]);
