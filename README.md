@@ -17,7 +17,7 @@ no,yellow,yes
 no,red,
 ```
 
-**Pseudocode output translated (by hand) to nested if/else:**
+**Pseudocode output translated (by hand) to C language style nested if/else:**
 ```c
 if (signal == yellow) {
   if (canStop == no)
@@ -62,7 +62,7 @@ python3 test.py
 
 **The problem:** Decision logic in code is fragile. A small requirements change can require reorganizing deeply nested if/else statements. Hand-optimization is error-prone and hard to review.
 
-**The solution:** Express requirements as a decision table (each row is one rule). The compiler automatically:
+**The solution:** Express requirements as a decision table. The compiler automatically:
 - Finds the optimal evaluation order
 - Eliminates duplicate code paths
 - Minimizes decision depth
@@ -87,9 +87,9 @@ Decision Table (.dtc)  →  Pseudocode (.psu)  →  Target Language (.h, .c, etc
      CSV Format              Optimized DAG         Language-specific code
 ```
 
-1. **Input**: CSV formatted decision tables where each row defines one outcome
-2. **Compilation**: `dtc` builds an optimized decision graph (DAG structure)
-3. **Output**: CSV formatted pseudocode with metadata documenting all variables
+1. **Input**: CSV formatted decision tables
+2. **Compilation**: `dtc` builds an optimized decision [directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) (DAG)
+3. **Output**: CSV formatted pseudocode with metadata documenting all names' values, indicating which are independent (input) and dependent (output)
 4. **Translation**: Language-specific tools (e.g., `C.awk`) generate final code
 
 ## Input Format
@@ -105,15 +105,9 @@ resultValue2,dependentName1Value2,dependentName2Value2,...
 
 ### Critical Constraints
 
-**Input variable values must be mutually exclusive and exhaustive:**
+**Names' values must be mutually exclusive and exhaustive:**
 - **Mutually exclusive**: Each value represents a distinct state (e.g., a signal cannot be both "green" and "red")
-- **Exhaustive**: The values must cover all possible states of the variable (e.g., "green", "red", "yellow" covers all traffic light states)
-- **Empty cells**: Indicate "any value" - the result does not depend on that input variable for this row
-
-These constraints ensure:
-1. The decision table is **deterministic** - every possible input combination maps to exactly one output
-2. The decision table is **complete** - no input combination is undefined
-3. The compiler can **optimize safely** - knowing all possible values enables better test ordering
+- **Exhaustive**: The values must cover all possible states of the name (e.g., "green", "red", "yellow" covers all traffic light states)
 
 Example (traffic light decision as input to two other tables):
 ```csv
@@ -201,7 +195,7 @@ Many decision table methodologies use a two-stage approach:
 1. **Stage 1 (Conditions → Rules):** Input conditions are evaluated to determine which "rule" applies
 2. **Stage 2 (Rules → Actions):** The matched rule determines which actions fire
 
-This pattern maps naturally to dtc using an intermediate variable:
+This pattern maps naturally to dtc using an intermediate name e.g. "rule":
 
 ```csv
 # Stage 1: Conditions determine which rule matches
@@ -235,24 +229,7 @@ n,4
 y,5
 ```
 
-**Benefits of this pattern:**
-- **Separation of concerns**: Domain experts maintain condition-to-rule mappings; action tables are simpler
-- **Reusability**: Multiple action tables share the same rule definitions
-- **Traceability**: Rules provide named intermediate states for debugging and documentation
-- **Scalability**: Adding a new action only requires one new table referencing existing rules
-
-### Direct Mapping Pattern
-
-For simpler problems, map conditions directly to outputs without intermediate rules:
-
-```csv
-@free shipping,customer type,order value
-y,premium,
-n,standard,low
-y,standard,high
-```
-
-The compiler optimizes both patterns. Choose based on maintainability needs.
+The dtc is not constrained by this pattern. Use (sub)tables to decompose your problem as desired.
 
 ### Multi-File Compilation
 
@@ -269,24 +246,24 @@ The compiler merges all tables from all input files, solving them together into 
 - **Conditional inclusion**: Include or exclude table files based on configuration
 
 **Important consideration:**
-Tables with interdependencies (shared variables) benefit from joint optimization. However, compiling independent tables together increases optimization time exponentially since the search space combines. For independent decision problems:
+Tables with interdependencies (shared names) benefit from joint optimization. However, compiling independent tables together increases optimization time exponentially since the search space combines. For independent decision problems:
 
 ```bash
 # Independent tables: compile separately (faster)
 ./dtc power.dtc > power.psu
-./dtc shipping.dtc > shipping.psu
+./dtc driving.dtc > driving.psu
 
 # Interdependent tables: compile together (better optimization)
 ./dtc proceed.dtc brake.dtc accelerator.dtc > driving.psu
 ```
 
-If compilation takes too long, consider whether your tables are truly interdependent. Splitting independent problems into separate compilation units reduces optimization time while producing equivalent results.
+If compilation takes too long, consider whether your tables are truly interdependent. (Review the pseudocode metadata that identifies inputs, the values the dtc has determined are independent.) Splitting independent problems into separate compilation units reduces optimization time while producing equivalent results.
 
 ## Output Format
 
 The pseudocode output is in CSV format, making it easy to parse in any language. Each line is a CSV record with the operation type in the first field.
 
-**Example output for the traffic light decision table:**
+**Example output for the traffic light decision table, DisjunctiveNormalForm.dtc:**
 ```csv
 I,canStop,no
 I,canStop,yes
@@ -329,8 +306,8 @@ L,0
 ### Pseudocode Syntax
 
 **Metadata Lines:**
-- **`I,var,val`** - Input variable with possible value - provides type information
-- **`O,var,val`** - Output variable with possible value - provides type information
+- **`I,var,val`** - Input (independent) name and value - provides type information
+- **`O,var,val`** - Output (dependent) name and value - provides type information
 - **`D,n`** - Depth (maximum decision depth, worst-case tests to reach a leaf) - complexity metric
 
 **Code Lines:**
@@ -340,7 +317,7 @@ L,0
 - **`R,var,val`** - Resolve: assign val to var
 
 **CSV Encoding:**
-All variable names and values are CSV-encoded. Values containing commas, quotes, or newlines are quoted per RFC 4180:
+All names and values are CSV-encoded. Values containing commas, quotes, or newlines are quoted per RFC 4180:
 ```csv
 I,"Order requires special ""HAZMAT""",y
 R,"Add $17.50 foreign shipping fee",y
@@ -351,13 +328,13 @@ The metadata lines enable automatic generation of:
 - Type-safe code with enums in statically-typed languages
 - Function signatures with correct parameter types
 - Visual diagrams (UML, flowcharts) without parsing code
-- Documentation showing all possible values for each variable
+- Documentation showing all possible values for each name
 
 This metadata makes the pseudocode self-describing and sufficient for translation to any programming language or visualization format.
 
 ## Language Translation
 
-The CSV pseudocode is designed to be easily parsed by any language with a CSV library. The metadata (I and O lines) provides all information needed to generate type definitions and function signatures.
+The CSV pseudocode is designed to be easily parsed CSV text. The metadata (I and O lines) provides all information needed to generate type definitions and function signatures.
 
 ### Direct Translation (goto-based)
 
@@ -375,7 +352,7 @@ awk -f C.awk table.psu
 # Creates: table.h and table.c
 ```
 
-This generates complete C code with:
+This example generates complete C code with:
 - Separate enum for each variable with namespaced values
 - Header file with type definitions and function declaration
 - Implementation file with goto-based decision logic preserving DAG structure
@@ -408,18 +385,18 @@ While not as optimal as goto, state machine translation still benefits from the 
 
 ### Why goto-based Pseudocode?
 
-The decision table compiler generates a [directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) (DAG) where multiple decision paths converge at shared nodes. This structure:
+The decision table compiler generates a DAG where multiple decision paths converge at shared nodes. This structure:
 
 1. **Eliminates duplicate code** - Tree-structured if/else would duplicate downstream logic at every branch point (exponential bloat)
 2. **Maps to machine code** - goto translates directly to CPU jump instructions
 3. **Avoids nesting limits** - Flat structure prevents deeply nested if/else hitting compiler limits
 4. **Enables sharing** - Multiple paths to same outcome share the leaf node code
 
-Example: In `power.psu`, multiple decision paths converge to the same power state outputs (BATT, ONE_GEN_FLGT, etc.), sharing result assignment code.
+Example: In `DisjunctiveNormalForm.psu`, multiple decision paths converge to common tail code.
 
 ## C Code Generation
 
-The `C.awk` script translates CSV pseudocode into complete C header and implementation files with proper type safety and namespace isolation.
+The example `C.awk` script translates CSV pseudocode into complete C header and implementation files with proper type safety and namespace isolation.
 
 ### Quick Start
 
@@ -454,7 +431,7 @@ Variable names and values are converted to valid C identifiers:
 
 ## Python Code Generation
 
-The `psu2py.py` script translates CSV pseudocode into Python modules using a state machine pattern.
+The example `psu2py.py` script translates CSV pseudocode into Python modules using a state machine pattern.
 
 ### Quick Start
 
@@ -565,7 +542,7 @@ The generated graph would show:
 
 **Metadata Completeness:**
 The pseudocode contains everything needed for diagram generation:
-- All variable names and their possible values (I, O)
+- All names and their possible values (I, O)
 - Complete control flow graph (labels and jumps)
 - Decision conditions with explicit comparisons
 - Complexity metric (D) for documentation
@@ -580,13 +557,13 @@ The decision table optimization problem is [NP-complete](https://en.wikipedia.or
 ### Compilation Time
 
 **Compilation time varies based on:**
-- **Number of input variables**: Each additional variable exponentially increases the search space
-- **Number of unique values per variable**: More values = more possible test orderings
+- **Number of input names**: Each additional name exponentially increases the search space
+- **Number of unique values per name**: More values = more possible test orderings
 
 **Practical expectations:**
-- **Simple tables** (3-5 variables): Milliseconds
-- **Medium tables** (8-10 variables): Seconds
-- **Complex tables** (15+ variables): Minutes or longer
+- **Simple tables** (3-5 independent values): Milliseconds
+- **Medium tables** (8-10 independent values): Seconds
+- **Complex tables** (15+ independent values): Minutes or longer
 
 ### Why Optimization Matters
 
@@ -594,7 +571,7 @@ The decision table optimization problem is [NP-complete](https://en.wikipedia.or
 - Test every condition sequentially (maximum depth)
 - Duplicate code at every branch point (exponential size)
 
-**With dtc optimization**, the `power.dtc` example (10 input variables, 20 values):
+**With dtc optimization**, the `power.dtc` example (10 input names, 20 values):
 - Achieves depth 8 instead of depth 20 (60% reduction). (With the -q, quick, flag, the depth is 10.)
 - Shares nodes via DAG structure (compact output)
 
