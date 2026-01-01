@@ -300,8 +300,37 @@ valsAdd(
   vals_t *vals
  ,const val_t *val
 ){
-  val_t **r;
   void *v;
+  unsigned int lo;
+  unsigned int hi;
+  unsigned int mid;
+  int c;
+
+  if (!val || !vals)
+    return (0);
+  /* binary search for insertion position - O(n) vs qsort O(n log n) */
+  lo = 0;
+  hi = vals->n;
+  while (lo < hi) {
+    mid = lo + (hi - lo) / 2;
+    c = valsSrtCmp(&val, vals->v + mid);
+    if (c == 0)
+      return (*(vals->v + mid));
+    if (c < 0)
+      hi = mid;
+    else
+      lo = mid + 1;
+  }
+  if (!(v = realloc(vals->v, (vals->n + 1) * sizeof (*vals->v))))
+    return (0);
+  vals->v = v;
+  if (lo < vals->n)
+    memmove(vals->v + lo + 1, vals->v + lo, (vals->n - lo) * sizeof (*vals->v));
+  *(vals->v + lo) = val;
+  ++vals->n;
+  return (val);
+#if 0 /* original bsearch/qsort technique - O(n log n) per insert */
+  val_t **r;
 
   if (!val || !vals)
     return (0);
@@ -313,6 +342,7 @@ valsAdd(
   *(vals->v + vals->n++) = val;
   qsort(vals->v, vals->n, sizeof (*vals->v), (int(*)(const void *, const void *))valsSrtCmp);
   return (val);
+#endif
 }
 
 #if DTC_DEBUG
@@ -620,6 +650,7 @@ infsNew(
   return (calloc(1, sizeof (infs_t)));
 }
 
+#if 0 /* only used by original bsearch/qsort technique */
 static int
 infsSchCmp(
   const inf_t *k
@@ -627,6 +658,7 @@ infsSchCmp(
 ){
   return (infCmp(k, *e));
 }
+#endif
 
 static int
 infsValSchCmp(
@@ -649,8 +681,37 @@ infsAdd(
   infs_t *infs
  ,const inf_t *inf
 ){
-  inf_t **r;
   void *v;
+  unsigned int lo;
+  unsigned int hi;
+  unsigned int mid;
+  int c;
+
+  if (!inf || !infs)
+    return (0);
+  /* binary search for insertion position - O(n) vs qsort O(n log n) */
+  lo = 0;
+  hi = infs->n;
+  while (lo < hi) {
+    mid = lo + (hi - lo) / 2;
+    c = infsSrtCmp(&inf, infs->v + mid);
+    if (c == 0)
+      return (*(infs->v + mid));
+    if (c < 0)
+      hi = mid;
+    else
+      lo = mid + 1;
+  }
+  if (!(v = realloc(infs->v, (infs->n + 1) * sizeof (*infs->v))))
+    return (0);
+  infs->v = v;
+  if (lo < infs->n)
+    memmove(infs->v + lo + 1, infs->v + lo, (infs->n - lo) * sizeof (*infs->v));
+  *(infs->v + lo) = inf;
+  ++infs->n;
+  return (inf);
+#if 0 /* original bsearch/qsort technique - O(n log n) per insert */
+  inf_t **r;
 
   if (!inf || !infs)
     return (0);
@@ -662,6 +723,7 @@ infsAdd(
   *(infs->v + infs->n++) = inf;
   qsort(infs->v, infs->n, sizeof (*infs->v), (int(*)(const void *, const void *))infsSrtCmp);
   return (inf);
+#endif
 }
 
 #if DTC_DEBUG
@@ -1156,8 +1218,11 @@ valsSubVal(
       }
     }
   if (j == 1) {
-    valsRefFre(r);
-    r = valsSubValNam(vals, val, infs);
+    /* filter r in place instead of rebuilding with valsSubValNam */
+    for (j = i = 0; i < r->n; ++i)
+      if ((*(r->v + i))->nam != val->nam)
+        *(r->v + j++) = *(r->v + i);
+    r->n = j;
   }
   return (r);
 }
@@ -1236,16 +1301,16 @@ infsResValNam(
   infs_t *r;
   infs_t *t;
   unsigned int i;
-  unsigned int j;
 
   r = 0;
   for (i = 0; i < val->nam->vals->n; ++i) {
     if (*(val->nam->vals->v + i) == val)
       continue;
-    for (j = 0; j < vals->n; ++j)
-      if (*(val->nam->vals->v + i) == *(vals->v + j))
-        break;
-    if (j == vals->n)
+    if (!bsearch(*(val->nam->vals->v + i)
+        ,vals->v
+        ,vals->n
+        ,sizeof (*vals->v)
+        ,(int(*)(const void *, const void *))valsSchCmp))
       continue;
     t = infsResVal(vals, r ? r : infs, *(val->nam->vals->v + i));
     infsRefFre(r);
@@ -1635,7 +1700,33 @@ bldsAdd(
  ,bld_t *bld
 ){
   void *v;
+  unsigned int lo;
+  unsigned int hi;
+  unsigned int mid;
+  int c;
 
+  if (!bld || !blds)
+    return (0);
+  /* binary search for insertion position - O(n) vs qsort O(n log n) */
+  lo = 0;
+  hi = blds->n;
+  while (lo < hi) {
+    mid = lo + (hi - lo) / 2;
+    c = bldsSrtCmp((const bld_t **)&bld, (const bld_t **)(blds->v + mid));
+    if (c < 0)
+      hi = mid;
+    else
+      lo = mid + 1;
+  }
+  if (!(v = realloc(blds->v, (blds->n + 1) * sizeof (*blds->v))))
+    return (0);
+  blds->v = v;
+  if (lo < blds->n)
+    memmove(blds->v + lo + 1, blds->v + lo, (blds->n - lo) * sizeof (*blds->v));
+  *(blds->v + lo) = bld;
+  ++blds->n;
+  return (bld);
+#if 0 /* original qsort technique - O(n log n) per insert */
   if (!bld || !blds)
     return (0);
   if (!(v = realloc(blds->v, (blds->n + 1) * sizeof (*blds->v))))
@@ -1644,6 +1735,7 @@ bldsAdd(
   *(blds->v + blds->n++) = bld;
   qsort(blds->v, blds->n, sizeof (*blds->v), (int(*)(const void *, const void *))bldsSrtCmp);
   return (bld);
+#endif
 }
 
 #if DTC_DEBUG

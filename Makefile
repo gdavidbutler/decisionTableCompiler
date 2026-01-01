@@ -1,4 +1,4 @@
-CFLAGS = -std=c89 -pedantic -Wall -Wextra -Os -g -I.
+CFLAGS = -Os -g -I.
 LDFLAGS =
 
 CSV = ../csvTrivialCallbackParser
