@@ -85,19 +85,19 @@ symCmp(
  ,const sym_t *e2
 ){
   unsigned int i;
-  unsigned int j;
   int r;
 
-  j = e1->n < e2->n ? e1->n : e2->n;
-  for (i = 0; i < j && !(r = e1->v[i] - e2->v[i]); ++i);
+  if (e1 == e2)
+    return (0);
+  i = e1->n < e2->n ? e1->n : e2->n;
+  r = memcmp(e1->v, e2->v, i);
   if (r < 0)
     return (-1);
   if (r > 0)
     return (1);
-  r = e1->n - e2->n;
-  if (r < 0)
+  if (e1->n < e2->n)
     return (-1);
-  if (r > 0)
+  if (e1->n > e2->n)
     return (1);
   return (0);
 }
@@ -258,6 +258,8 @@ valCmp(
 ){
   int r;
 
+  if (e1 == e2)
+    return (0);
   if ((r = namCmp(e1->nam, e2->nam)))
     return (r);
   return (symCmp(e1->sym, e2->sym));
@@ -408,9 +410,17 @@ valsCmp(
   unsigned int i;
   int r;
 
+/* use memcmp to optimize this:
   for (i = 0; i < e1->n && i < e2->n; ++i)
     if ((r = valCmp(*(e1->v + i), *(e2->v + i))))
       return (r);
+ */
+  i = e1->n < e2->n ? e1->n : e2->n;
+  r = memcmp(e1->v, e2->v, i * sizeof (*e1->v));
+  if (r < 0)
+    return (-1);
+  if (r > 0)
+    return (1);
   if (e1->n < e2->n)
     return (-1);
   if (e1->n > e2->n)
@@ -483,6 +493,8 @@ namCmp(
   const nam_t *e1
  ,const nam_t *e2
 ){
+  if (e1 == e2)
+    return (0);
   return (symCmp(e1->sym, e2->sym));
 }
 
@@ -631,6 +643,8 @@ infCmp(
 ){
   int r;
 
+  if (e1 == e2)
+    return (0);
   if ((r = valCmp(e1->val, e2->val)))
     return (r);
   return (valsCmp(e1->vals, e2->vals));
@@ -789,9 +803,17 @@ infsCmp(
   unsigned int i;
   int r;
 
+/* use memcmp to optimize this:
   for (i = 0; i < e1->n && i < e2->n; ++i)
     if ((r = infCmp(*(e1->v + i), *(e2->v + i))))
       return (r);
+ */
+  i = e1->n < e2->n ? e1->n : e2->n;
+  r = memcmp(e1->v, e2->v, i * sizeof (*e1->v));
+  if (r < 0)
+    return (-1);
+  if (r > 0)
+    return (1);
   if (e1->n < e2->n)
     return (-1);
   if (e1->n > e2->n)
