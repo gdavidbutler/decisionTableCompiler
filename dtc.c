@@ -1027,46 +1027,59 @@ csvPrt(
 
 /********************************************************************************/
 
-/* single dependency transitive closure */
+/* transitive closure */
 static int
 infsValTrnAdd(
   const val_t *val
  ,const infs_t *infs
+ ,const vals_t *vals
  ,infs_t *r
 ){
   vals_t *v1;
-  vals_t *v2;
-  vals_t *t;
+  const val_t *d;
+  unsigned int n;
   unsigned int i;
   unsigned int j;
+  unsigned int k;
 
-  v2 = 0;
   if (!(v1 = valsNew())
-   || !(v2 = valsNew())
    || !(valsAdd(v1, val))) {
-    valsRefFre(v2);
     valsRefFre(v1);
     return (1);
   }
+  for (i = 0; i < r->n; ++i)
+    if (!valsAdd(v1, (*(r->v + i))->val)) {
+      valsRefFre(v1);
+      return (1);
+    }
   for (;;) {
-    for (i = 0; i < v1->n; ++i)
-      for (j = 0; j < infs->n; ++j)
-        if ((*(infs->v + j))->vals->n == 1
-         && *(*(infs->v + j))->vals->v == *(v1->v + i)
-         && (!infsAdd(r, *(infs->v + j)) || !valsAdd(v2, (*(infs->v + j))->val))) {
-          valsRefFre(v2);
-          valsRefFre(v1);
-          infsRefFre(r);
-          return (1);
-        }
-    if (!v2->n)
+    n = v1->n;
+    for (i = 0; i < infs->n; ++i) {
+      for (j = 0; j < (*(infs->v + i))->vals->n; ++j) {
+        d = *((*(infs->v + i))->vals->v + j);
+        if (bsearch(d, v1->v, v1->n, sizeof (*v1->v), (int(*)(const void *, const void *))valsSchCmp))
+          continue;
+        for (k = 0; k < v1->n; ++k)
+          if ((*(v1->v + k))->nam == d->nam)
+            goto continue_i;
+        if (bsearch(d, vals->v, vals->n, sizeof (*vals->v), (int(*)(const void *, const void *))valsSchCmp))
+          goto continue_i;
+        for (k = 0; k < infs->n; ++k)
+          if ((*(infs->v + k))->val->nam == d->nam)
+            break;
+        if (k < infs->n)
+          goto continue_i;
+      }
+      if (!infsAdd(r, *(infs->v + i))
+       || !valsAdd(v1, (*(infs->v + i))->val)) {
+        valsRefFre(v1);
+        return (1);
+      }
+continue_i:;
+    }
+    if (v1->n == n)
       break;
-    t = v1;
-    v1 = v2;
-    v2 = t;
-    v2->n = 0;
   }
-  valsRefFre(v2);
   valsRefFre(v1);
   return (0);
 }
@@ -1849,7 +1862,7 @@ nodInfsPrt(nO);
 
     if (nV->n) {
       for (j = 0; j < nV->n; ++j)
-        if (infsValTrnAdd((*(nV->v + j))->val, infs, nV))
+        if (infsValTrnAdd((*(nV->v + j))->val, infs, vals, nV))
           goto error2;
       r->infsV = nV;
 #if DTC_DEBUG
@@ -1862,7 +1875,7 @@ nodInfsPrt(r->infsV);
 
     if (nO->n) {
       for (j = 0; j < nO->n; ++j)
-        if (infsValTrnAdd((*(nO->v + j))->val, infs, nO))
+        if (infsValTrnAdd((*(nO->v + j))->val, infs, vals, nO))
           goto error2;
       r->infsO = nO;
 #if DTC_DEBUG

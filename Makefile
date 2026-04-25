@@ -1,5 +1,4 @@
-CFLAGS = -Os -g -I.
-LDFLAGS =
+CFLAGS = -I. -Os -g
 
 CSV = ../csvTrivialCallbackParser
 
@@ -24,7 +23,6 @@ examples-py: $(EXAMPLES:=.py)
 	python3 test.py
 
 clean:
-	rm -f dtc.o
 	rm -f power.o DisjunctiveNormalForm.o test.o
 
 clobber: clean
@@ -34,8 +32,8 @@ clobber: clean
 	rm -f $(EXAMPLES:=.psu)
 	rm -f test
 
-dtc: dtc.o $(CSV)/csv.o
-	$(CC) $(LDFLAGS) -o $@ $^
+dtc: dtc.c $(CSV)/csv.o
+	$(CC) $(CFLAGS) -o $@ $^
 
 # Generate pseudocode from decision table
 %.psu: %.dtc dtc
@@ -56,7 +54,7 @@ dtc: dtc.o $(CSV)/csv.o
 
 # Example test program
 test: test.o power.o DisjunctiveNormalForm.o
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) -o $@ $^
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
