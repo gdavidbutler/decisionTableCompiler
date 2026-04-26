@@ -2152,7 +2152,8 @@ outNod(
     printf("J,%u\n", nod->lbl);
     return;
   }
-  ((nod_t *)nod)->lbl = out->l;
+  ((nod_t *)nod)->lbl = out->l++;
+  printf("L,%u\n", nod->lbl);
   if (!nod->val) {
     for (i = 0; nod->infsV && i < nod->infsV->n; ++i) {
       printf("R,");
