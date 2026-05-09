@@ -3,7 +3,6 @@
 Test decision table evaluators.
 
 Generated with Claude Code (https://claude.ai/code)
-Co-Authored-By: Claude <noreply@anthropic.com>
 """
 
 import power

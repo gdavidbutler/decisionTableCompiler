@@ -5,7 +5,6 @@ Translate decision table CSV pseudocode (.psu) to Python module.
 Usage: python3 psu2py.py table.psu > table.py
 
 Generated with Claude Code (https://claude.ai/code)
-Co-Authored-By: Claude <noreply@anthropic.com>
 """
 
 import sys
